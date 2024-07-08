@@ -9,8 +9,8 @@
 
 int middle_value = 1920;
 
-int peak1 = 0;
-int peak2 = 0;
+int rms1 = 0;
+int rms2 = 0;
 
 const IPAddress ip(172, 20, 10, 5);
 const IPAddress gateway(172, 20, 10, 1);
@@ -29,7 +29,7 @@ void setup() {
   WiFi.begin("rikiのiPhone", "12345678");
   WiFi.config(ip, gateway, subnet);
     
-  OscWiFi.publish(host, 6667, "/micin", peak1, peak2);
+  OscWiFi.publish(host, 7181 , "/micin", rms1, rms2);
 
 }
 
@@ -48,24 +48,20 @@ void loop() {
     while ((micros() - t) < sampling_period_us) ;
   }
 
-  peak1 = 0;
-  peak2 = 0;
+  rms1 = 0;
+  rms2 = 0;
 
   for (int i = 0; i < SAMPLES; i++)
   {
     int vol1 = abs(buff1[i] - middle_value);
     int vol2 = abs(buff2[i] - middle_value);
 
-    if (peak1 < vol1)
-    {
-      peak1 = vol1;
-    }
-
-    if (peak2 < vol2)
-    {
-      peak2 = vol2;
-    }
+    rms1 += vol1;
+    rms2 += vol2;
   }
+
+  rms1 = round(rms1/SAMPLES);
+  rms2 = round(rms2/SAMPLES);
 
   //Serial.print(peak1);
   //Serial.print(" ");
