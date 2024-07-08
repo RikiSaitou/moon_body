@@ -35,17 +35,17 @@ void setup() {
 
 void loop() {
   M5.update();
-  unsigned int sampling_period_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
+  unsigned int sampling_period_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY)); // 400kHzでサンプリングする時1回のサンプリングにかかるμs = 25μs
 
   int buff1[SAMPLES];
   int buff2[SAMPLES];
 
   for (int i = 0; i < SAMPLES; i++)
   {
-    unsigned long t = micros();
+    unsigned long t = micros(); // 処理の始まりのマイクロ秒を取得
     buff1[i] = analogRead(MIC1);
     buff2[i] = analogRead(MIC2);
-    while ((micros() - t) < sampling_period_us) ;
+    while ((micros() - t) < sampling_period_us) ; // 25μsに一度サンプリングするようにしたいので、時間が経つまで待つ
   }
 
   rms1 = 0;
