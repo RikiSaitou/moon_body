@@ -20,10 +20,8 @@
 #include "driver/adc.h"
 #include <driver/i2s.h>
 
-#define MIC1 36
-#define MIC2 35
-
-#define NUM_READ_LEN 1
+// #define MIC1 36
+// #define MIC2 35
 
 
 BluetoothA2DPSource a2dp_source;
@@ -31,9 +29,10 @@ BluetoothA2DPSource a2dp_source;
 void setupADC() {
   i2s_config_t i2s_config = {
     .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_ADC_BUILT_IN),
-    .sample_rate =  44100/2,              // The format of the signal using ADC_BUILT_IN
-    .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT, // is fixed at 12bit, stereo, MSB
-    .channel_format = I2S_CHANNEL_FMT_ALL_LEFT,
+    .sample_rate =  44100,              // monoの場合は 44100/2 にする必要がある。なぜかは不明
+    .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
+    .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
+    // .channel_format = I2S_CHANNEL_FMT_ALL_LEFT,
     .communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB), 
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
     .dma_buf_count = 16, 
@@ -44,11 +43,14 @@ void setupADC() {
   };
 
   adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_11db);
+  adc2_config_channel_atten(ADC2_CHANNEL_7, ADC_ATTEN_11db);
   adc1_config_width(ADC_WIDTH_12Bit);
 
   esp_err_t erReturns;
   erReturns = i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
   erReturns = i2s_set_adc_mode(ADC_UNIT_1, ADC1_CHANNEL_0);
+  // erReturns = i2s_set_adc_mode(ADC_UNIT_1, ADC1_CHANNEL_7); // ADC_UNIT_1 の利用権がCHANNEL_7のみになってしまう
+  
   i2s_adc_enable(I2S_NUM_0);
 }
 
@@ -58,19 +60,26 @@ void setupADC() {
 int sampling_rate = 44100;
 int rate = 44100 / sampling_rate;
 int32_t get_data_frames(Frame *frame, int32_t frame_count) {
-    
-    uint16_t u16Buf[frame_count];
+    // unsigned long t = micros();
+    uint16_t u16Buf[frame_count*2]; // 左右分のデータ
     size_t uiGotLen=0;
-    i2s_read(I2S_NUM_0, u16Buf, frame_count*sizeof(uint16_t), &uiGotLen, portMAX_DELAY);
+    i2s_read(I2S_NUM_0, u16Buf, frame_count*sizeof(uint16_t)*2, &uiGotLen, portMAX_DELAY); // こちらも左右分のデータ
+
+    // Serial.println(micros() - t);
 
     for (int i = 0; i < frame_count; i++)
     {
+      float amp_r = ((float)u16Buf[i * 2] - 4095.0 / 2.0) * 8.0; // 45μsくらい 4095 は 12bit
+      float amp_l = ((float)u16Buf[i * 2 + 1] - 4095.0 / 2.0) * 8.0; // 45μsくらい 4095 は 12bit
+      // Serial.print(micros() - t);
+      
+      // Serial.print(" ");
+      // Serial.print(amp_r);
+      // Serial.print(" ");
+      // Serial.println(amp_l);
 
-      float amp = ((float)u16Buf[i] - 4095.0 / 2.0) * 8.0; // 45μsくらい 4095 は 12bit
-      // Serial.println(u16Buf[i]);
-
-      frame[i].channel1 = amp;
-      frame[i].channel2 = amp;
+      frame[i].channel1 = amp_r;
+      frame[i].channel2 = amp_l;
 
     }
     // delay(1);
@@ -87,8 +96,8 @@ void setup() {
 
   setupADC();
 
-  pinMode(MIC1, INPUT);
-  pinMode(MIC2, INPUT);
+  // pinMode(MIC1, INPUT);
+  // pinMode(MIC2, INPUT);
 
   a2dp_source.set_auto_reconnect(false);
   a2dp_source.start("X6S", get_data_frames);  
