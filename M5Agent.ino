@@ -1,5 +1,6 @@
 #include <M5Stack.h>
-#include <ArduinoOSCWiFi.h>
+// #include <ArduinoOSCWiFi.h>
+#include <BluetoothA2DPSource.h>
 
 #define MIC1 36
 #define MIC2 35
@@ -7,15 +8,33 @@
 #define SAMPLES 500
 #define SAMPLING_FREQUENCY 40000
 
+#define BLUETOOTH_DEVICE "BKH 274"
+#define BLUETOOTH_VOLUME 100
+
 int middle_value = 1920;
 
 int rms1 = 0;
 int rms2 = 0;
 
-const IPAddress ip(172, 20, 10, 5);
-const IPAddress gateway(172, 20, 10, 1);
-const IPAddress subnet(255, 255, 255, 0);
+// const IPAddress ip(172, 20, 10, 5);
+// const IPAddress gateway(172, 20, 10, 1);
+// const IPAddress subnet(255, 255, 255, 0);
 const char* host = "172.20.10.3";
+
+BluetoothA2DPSource a2dp_source;
+int32_t get_data_frames(Frame *frame, int32_t frame_count) {
+  for (int i = 0; i < frame_count; ++i) {
+    lag += lag_per_frame;
+    if (lag > BT_RATE) {
+      lag -= BT_RATE;
+    } else {
+      if (!buf.isEmpty()) last_sample = buf.read();
+    }
+    frame[i].channel1 = last_sample.l();
+    frame[i].channel2 = last_sample.r();
+  }
+  return frame_count;
+}
 
 void setup() {
   M5.begin();
@@ -26,11 +45,14 @@ void setup() {
   pinMode(MIC1, INPUT);
   pinMode(MIC2, INPUT);
 
-  WiFi.begin("rikiのiPhone", "12345678");
-  WiFi.config(ip, gateway, subnet);
+  // WiFi.begin("rikiのiPhone", "12345678");
+  // WiFi.config(ip, gateway, subnet);
     
-  OscWiFi.publish(host, 7181 , "/micin", rms1, rms2);
+  // OscWiFi.publish(host, 7181 , "/micin", rms1, rms2);
 
+  a2dp_source.set_auto_reconnect(false);
+  a2dp_source.start(BLUETOOTH_DEVICE, get_data_frames);  
+  a2dp_source.set_volume(BLUETOOTH_VOLUME);
 }
 
 void loop() {
@@ -64,8 +86,14 @@ void loop() {
   rms2 = round(rms2/SAMPLES);
 
   //Serial.print(peak1);
+  
+  for (int i = 0; i < SAMPLES; i++) {
+    Serial.print(buff1[i]);
+    Serial.print(" ");
+    Serial.println(buff2[i]);
+  }
   //Serial.print(" ");
   //Serial.println(peak2);
 
-  OscWiFi.update(); 
+  // OscWiFi.update(); 
 }
